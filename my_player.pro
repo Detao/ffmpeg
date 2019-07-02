@@ -39,7 +39,9 @@ win32: LIBS += -L$$PWD/SDL2.0/lib/x86/ -lSDL2 -lSDL2main -lSDL2test
 
 SOURCES += \
         main.cpp \
-        mainwindow.cpp
+        mainwindow.cpp \
+    ffmpeg_sdl_environme_test.cpp \
+    ffmpeg_player.cpp
 
 HEADERS += \
         mainwindow.h
