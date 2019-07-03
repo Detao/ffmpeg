@@ -69,7 +69,3 @@ int environme_test()
 
     return 0;
 }
-int SDL_Create()
-{
-    SDL_Window *screen
-}
