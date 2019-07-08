@@ -41,10 +41,13 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     ffmpeg_sdl_environme_test.cpp \
-    ffmpeg_player.cpp
+    ffmpeg_player.cpp \
+    pcm_decode.cpp \
+    ffmpeg_audio.cpp
 
 HEADERS += \
-        mainwindow.h
+        mainwindow.h \
+    pcm_decode.h
 
 FORMS += \
         mainwindow.ui

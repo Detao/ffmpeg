@@ -1,4 +1,4 @@
-#include <QDebug>
+ #include <QDebug>
 
 #ifdef _WIN32
 extern "C"
@@ -19,6 +19,34 @@ extern "C"
 };
 #endif
 #endif
+
+#define SFM_REFRESH_EVENT       (SDL_USEREVENT + 1)
+#define SFM_BREAK_EVENT         (SDL_USEREVENT + 2)
+
+int thread_exit=0;
+int thread_pause=0;
+
+int sfp_refersh_thread(void* opaque)
+{
+    thread_exit = 0 ;
+    thread_pause =0 ;
+    while(!thread_exit){
+        if(!thread_pause){
+            /*sem send*/
+            SDL_Event event;
+            event.type=SFM_REFRESH_EVENT;
+            SDL_PushEvent(&event);
+        }
+        SDL_Delay(40);
+    }
+    thread_exit=0;
+    thread_pause=0;
+
+    SDL_Event event;
+    event.type=SFM_BREAK_EVENT;
+    SDL_PushEvent(&event);
+    return 0;
+}
 
 
 int ffmpeg_player()
@@ -45,6 +73,8 @@ int ffmpeg_player()
     SDL_Renderer *sdlRenderer;
     SDL_Texture * sdlTexture;
     SDL_Rect sdlRect;
+    SDL_Thread *video_tid;
+    SDL_Event event;
 
     /*init ffmpeg and net module*/
     avformat_network_init();
@@ -106,7 +136,7 @@ int ffmpeg_player()
         qDebug()<<"SDL initialize failed ERROR:"<<SDL_GetError()<<"\n";
         return -1;
     }
-
+    
     screen_h =600; // pCodecCtx->height;
     screen_w = 800; //pCodecCtx->width;
 
@@ -123,45 +153,82 @@ int ffmpeg_player()
     sdlRect.w=screen_w;
     sdlRect.h=screen_h;
 
-    while(av_read_frame(pFormatCtx,packet)>=0){
-        if(packet->stream_index == videoStreamIndex){
+//    while(av_read_frame(pFormatCtx,packet)>=0){
+//        if(packet->stream_index == videoStreamIndex){
+//            ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
+//            if(ret < 0){
+//                qDebug()<<"Decode Error.\n";
+//                return -1;
+//            }
+//            if(got_picture){
+//                sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
+//                          pFrameYUV->data,pFrame->linesize);
+
+//                SDL_UpdateYUVTexture(sdlTexture,&sdlRect,
+//                                     pFrameYUV->data[0],pFrameYUV->linesize[0],
+//                                     pFrameYUV->data[1],pFrameYUV->linesize[1],
+//                                     pFrameYUV->data[2],pFrame->linesize[2]);
+//                SDL_RenderClear(sdlRenderer);
+//                SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
+//                SDL_RenderPresent(sdlRenderer);
+
+//                SDL_Delay(100);
+
+//            }
+//        }
+//        av_free_packet(packet);
+//    }
+//    while(1){
+//        ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
+//        if(ret < 0)
+//            break;
+//        if(!got_picture)
+//            break;
+//        sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
+//                  pFrameYUV->data,pFrame->linesize);
+
+//        SDL_RenderClear(sdlRenderer);
+//        SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
+//        SDL_RenderPresent(sdlRenderer);
+
+//        SDL_Delay(100);
+//    }
+    packet=(AVPacket *)av_malloc(sizeof(AVPacket));
+    video_tid = SDL_CreateThread(sfp_refersh_thread,"refresh_thead",NULL);
+    while(1){
+        SDL_WaitEvent(&event);
+        if(event.type == SFM_REFRESH_EVENT){
+            while(1){
+                if(av_read_frame(pFormatCtx,packet)<0){
+                    thread_exit=1;
+                }
+                if(packet->stream_index==videoStreamIndex)
+                    break;
+            }
             ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
-            if(ret < 0){
-                qDebug()<<"Decode Error.\n";
+            if(ret<0){
+                qDebug()<<"Decode ERROR";
                 return -1;
             }
             if(got_picture){
-                sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
-                          pFrameYUV->data,pFrame->linesize);
-
-                SDL_UpdateYUVTexture(sdlTexture,&sdlRect,
-                                     pFrameYUV->data[0],pFrameYUV->linesize[0],
-                                     pFrameYUV->data[1],pFrameYUV->linesize[1],
-                                     pFrameYUV->data[2],pFrame->linesize[2]);
+                sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,
+                          pFrame->linesize,0,pFrame->height,pFrameYUV->data,pFrameYUV->linesize);
+                SDL_UpdateTexture(sdlTexture,NULL,pFrameYUV->data[0],pFrameYUV->linesize[0]);
                 SDL_RenderClear(sdlRenderer);
-                SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
+                SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,NULL);
                 SDL_RenderPresent(sdlRenderer);
 
-                SDL_Delay(100);
 
             }
+            av_free_packet(packet);
+        }else if(event.type == SDL_KEYDOWN){
+            if(event.key.keysym.sym == SDLK_SPACE)
+                thread_pause=!thread_pause;
+        }else if(event.type == SDL_QUIT){
+            thread_exit =1;
+        }else if(event.type == SFM_BREAK_EVENT){
+            break;
         }
-        av_free_packet(packet);
-    }
-    while(1){
-        ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
-        if(ret < 0)
-            break;
-        if(!got_picture)
-            break;
-        sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
-                  pFrameYUV->data,pFrame->linesize);
-
-        SDL_RenderClear(sdlRenderer);
-        SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
-        SDL_RenderPresent(sdlRenderer);
-
-        SDL_Delay(100);
     }
     sws_freeContext(img_convert_ctx);
 
