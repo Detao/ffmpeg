@@ -125,20 +125,12 @@ int ffmpeg_player()
     av_image_fill_arrays(pFrameYUV->data,pFrameYUV->linesize,out_buffer,AV_PIX_FMT_YUV420P,pCodecCtx->width,pCodecCtx->height,1);
 
     packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-
+    
     qDebug()<<"--------------file information------------\n";
     av_dump_format(pFormatCtx,0,filepath,0);
     qDebug()<<"------------------------------------------\n";
-    img_convert_ctx = sws_getContext(pCodecCtx->width,pCodecCtx->height,pCodecCtx->pix_fmt,
-                                     pCodecCtx->width,pCodecCtx->height,AV_PIX_FMT_YUV420P,SWS_BICUBIC,NULL,NULL,NULL);
-
-    if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER)){
-        qDebug()<<"SDL initialize failed ERROR:"<<SDL_GetError()<<"\n";
-        return -1;
-    }
-    
-    screen_h =600; // pCodecCtx->height;
-    screen_w = 800; //pCodecCtx->width;
+//    img_convert_ctx = sws_getContext(pCodecCtx->width,pCodecCtx->height,pCodecCtx->pix_fmt,
+//                                     pCodecCtx->width,pCodecCtx->height);
 
     Screen = SDL_CreateWindow("ffmpeg player",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,screen_w,screen_h,SDL_WINDOW_OPENGL);
     if(!Screen){
@@ -153,46 +145,7 @@ int ffmpeg_player()
     sdlRect.w=screen_w;
     sdlRect.h=screen_h;
 
-//    while(av_read_frame(pFormatCtx,packet)>=0){
-//        if(packet->stream_index == videoStreamIndex){
-//            ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
-//            if(ret < 0){
-//                qDebug()<<"Decode Error.\n";
-//                return -1;
-//            }
-//            if(got_picture){
-//                sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
-//                          pFrameYUV->data,pFrame->linesize);
 
-//                SDL_UpdateYUVTexture(sdlTexture,&sdlRect,
-//                                     pFrameYUV->data[0],pFrameYUV->linesize[0],
-//                                     pFrameYUV->data[1],pFrameYUV->linesize[1],
-//                                     pFrameYUV->data[2],pFrame->linesize[2]);
-//                SDL_RenderClear(sdlRenderer);
-//                SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
-//                SDL_RenderPresent(sdlRenderer);
-
-//                SDL_Delay(100);
-
-//            }
-//        }
-//        av_free_packet(packet);
-//    }
-//    while(1){
-//        ret = avcodec_decode_video2(pCodecCtx,pFrame,&got_picture,packet);
-//        if(ret < 0)
-//            break;
-//        if(!got_picture)
-//            break;
-//        sws_scale(img_convert_ctx,(const unsigned char * const *)pFrame->data,pFrame->linesize,0,pCodecCtx->height,
-//                  pFrameYUV->data,pFrame->linesize);
-
-//        SDL_RenderClear(sdlRenderer);
-//        SDL_RenderCopy(sdlRenderer,sdlTexture,NULL,&sdlRect);
-//        SDL_RenderPresent(sdlRenderer);
-
-//        SDL_Delay(100);
-//    }
     packet=(AVPacket *)av_malloc(sizeof(AVPacket));
     video_tid = SDL_CreateThread(sfp_refersh_thread,"refresh_thead",NULL);
     while(1){
@@ -230,6 +183,7 @@ int ffmpeg_player()
             break;
         }
     }
+    //av_strdup()
     sws_freeContext(img_convert_ctx);
 
     SDL_Quit();

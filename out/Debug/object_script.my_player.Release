@@ -1,0 +1,14 @@
+INPUT(
+./release\main.o
+./release\mainwindow.o
+./release\ffmpeg_sdl_environme_test.o
+./release\ffmpeg_player.o
+./release\pcm_decode.o
+./release\ffmpeg_audio.o
+./release\clock.o
+./release\audio.o
+./release\vedio.o
+./release\sync_clock.o
+./release\thread.o
+./release\moc_mainwindow.o
+);

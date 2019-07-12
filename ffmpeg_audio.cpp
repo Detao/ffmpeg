@@ -14,12 +14,36 @@ extern "C"
 }
 
 #define MAX_AUDIO_FRAME_SIZE  192000 //1 second of 48khz 32bit audio
+#define USE_SDL 1
+static uint8_t *audio_chunk;
+static uint32_t audio_len;
+static uint8_t *audio_pos;
+
+/* The audio function callback takes the following parameters:
+ * stream: A pointer to the audio buffer to be filled
+ * len: The length (in bytes) of the audio buffer
+*/
+void  fill_audio(void *udata,Uint8 *stream,int len){
+    //SDL 2.0
+    SDL_memset(stream, 0, len);
+    if(audio_len==0)
+        return;
+
+    len=(len>audio_len?audio_len:len);	/*  Mix  as  much  data  as  possible  */
+
+    SDL_MixAudio(stream,audio_pos,len,SDL_MIX_MAXVOLUME);
+    audio_pos += len;
+    audio_len -= len;
+}
+
 int audio_player(char *url)
 {
     AVFormatContext *pFormatCtx;
     AVCodecContext *pCodecCtx;
     AVCodec *pCodec;
     int i,audioStream;
+
+    SDL_AudioSpec wanted_spec;
 
     av_register_all();
     avformat_network_init();
@@ -88,7 +112,22 @@ int audio_player(char *url)
 
     pFrame =av_frame_alloc();
 #if USE_SDL
+    if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER)){
+        qDebug()<<"SDL Initialize failed Error:"<<SDL_GetError()<<"\n";
+        return -1;
+    }
+    wanted_spec.freq=out_sample_rate;
+    wanted_spec.format=AUDIO_S16SYS;
+    wanted_spec.channels=out_channels;
+    wanted_spec.silence=0;
+    wanted_spec.samples=out_nb_samples;
+    wanted_spec.callback=fill_audio;
+    wanted_spec.userdata=pCodecCtx;
 
+    if(SDL_OpenAudio(&wanted_spec,NULL)<0){
+        qDebug()<<"open audio failed"<<SDL_GetError()<<"\n";
+        return -1;
+    }
 #endif
     qDebug()<<"Bitrate: \t "<< pFormatCtx->bit_rate<<"\n";
     qDebug()<<"Decoder Name: \t"<<pCodecCtx->codec->long_name<<"\n";
@@ -123,6 +162,15 @@ int audio_player(char *url)
 
                 index++;
             }
+#if USE_SDL
+    while(audio_len>0)
+            SDL_Delay(1);
+
+    audio_chunk = (uint8_t *)out_buffer;
+    audio_len = out_buffer_size;
+    audio_pos = audio_chunk;
+
+#endif
         }
         av_free_packet(packet);
     }
@@ -130,7 +178,10 @@ int audio_player(char *url)
 
     swr_free(&au_convert_ctx);
 
-
+#if USE_SDL
+    SDL_CloseAudio();
+    SDL_Quit();
+#endif
 
 
     av_free(out_buffer);
